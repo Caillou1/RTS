@@ -16,6 +16,7 @@ public class CameraController : MonoBehaviour
     protected Camera m_Camera;
     protected Vector3 m_startPosition;
     protected Transform m_Transform;
+    
     void Start()
     {
         m_Transform = transform;
@@ -56,12 +57,38 @@ public class CameraController : MonoBehaviour
     {
         if (m_SelectedUnits.Count > 0)
         {
-            RaycastHit hitInfo;
-            if(Physics.Raycast(m_Camera.ScreenPointToRay(Input.mousePosition), out hitInfo))
+            if(Physics.Raycast(m_Camera.ScreenPointToRay(Input.mousePosition), out var hitInfo))
             {
+                int counter = 0;
+                float delta = .5f;
+                int maxPerLine = 5;
+                
+                Vector3 center = Vector3.zero;
+
                 foreach (var unit in m_SelectedUnits)
                 {
-                    unit.Move(hitInfo.point);
+                    center += unit.transform.position;
+                }
+
+                center /= m_SelectedUnits.Count;
+                Vector3 direction = hitInfo.point - center;
+                direction.y = 0;
+                direction.Normalize();
+                
+                foreach (var unit in m_SelectedUnits)
+                {
+                    int thisLineNumber = Mathf.Min(maxPerLine, m_SelectedUnits.Count - counter);
+                    float x = delta * (counter % maxPerLine) - (thisLineNumber - 1) / 2f * delta;
+
+                    int lineNumber = counter / maxPerLine;
+                    float y = -delta * lineNumber;
+
+                    Vector3 pos = new Vector3(hitInfo.point.x + x, hitInfo.point.y, hitInfo.point.z + y);
+                    var v = pos - hitInfo.point;
+                    v = Quaternion.LookRotation(direction) * v;
+                    pos = hitInfo.point + v;
+                    unit.Move(pos);
+                    counter++;
                 }
             }
         }
@@ -114,9 +141,7 @@ public class CameraController : MonoBehaviour
     {
         Ray rayStart = m_Camera.ScreenPointToRay(m_startPosition);
         Ray rayEnd = m_Camera.ScreenPointToRay(Input.mousePosition);
-        RaycastHit hitInfoStart;
-        RaycastHit hitInfoEnd;
-        if (Physics.Raycast(rayStart, out hitInfoStart) && Physics.Raycast(rayEnd, out hitInfoEnd))
+        if (Physics.Raycast(rayStart, out var hitInfoStart) && Physics.Raycast(rayEnd, out var hitInfoEnd))
         {
             Vector3 worldStart = hitInfoStart.point;
             Vector3 worldEnd = hitInfoEnd.point;
