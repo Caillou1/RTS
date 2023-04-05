@@ -61,11 +61,11 @@ public class CameraController : MonoBehaviour
             {
                 int counter = 0;
                 float delta = .5f;
-                int maxPerLine = 5;
-                
+                int maxPerLine = Mathf.Max(1, Mathf.FloorToInt(m_SelectedUnits.Count / Mathf.Log(m_SelectedUnits.Count)));
+
                 Vector3 center = Vector3.zero;
 
-                foreach (var unit in m_SelectedUnits)
+                foreach (AUnit unit in m_SelectedUnits)
                 {
                     center += unit.transform.position;
                 }
@@ -75,12 +75,12 @@ public class CameraController : MonoBehaviour
                 direction.y = 0;
                 direction.Normalize();
                 
-                foreach (var unit in m_SelectedUnits)
+                foreach (AUnit unit in m_SelectedUnits)
                 {
-                    int thisLineNumber = Mathf.Min(maxPerLine, m_SelectedUnits.Count - counter);
-                    float x = delta * (counter % maxPerLine) - (thisLineNumber - 1) / 2f * delta;
-
                     int lineNumber = counter / maxPerLine;
+                    int thisLineNumber = Mathf.Min(maxPerLine, m_SelectedUnits.Count - lineNumber * maxPerLine);
+                    
+                    float x = delta * (counter % thisLineNumber) - (thisLineNumber - 1) / 2f * delta;
                     float y = -delta * lineNumber;
 
                     Vector3 pos = new Vector3(hitInfo.point.x + x, hitInfo.point.y, hitInfo.point.z + y);
