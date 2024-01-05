@@ -5,34 +5,51 @@ using UnityEngine;
 
 public class CameraController : MonoBehaviour
 {
+    public static CameraController G;
     public float MoveSpeed = 5;
     public float ZoomSpeed = 1000;
     public RectTransform SelectedAreaRectTransform;
     public Transform SelectorTransform;
     public CollisionDetection SelectorCollisionDetection;
 
-    private HashSet<AUnit> m_SelectableUnits;
-    private HashSet<AUnit> m_SelectedUnits;
+    private HashSet<AEntity> m_SelectableEntities;
+    private HashSet<AEntity> m_SelectedEntities;
     protected Camera m_Camera;
     protected Vector3 m_startPosition;
     protected Transform m_Transform;
+
+    protected bool m_HasCapturedEntity;
+    protected GameObject m_CapturedEntity;
     
     void Start()
     {
+        G = this;
         m_Transform = transform;
         m_Camera = Camera.main;
         SelectorCollisionDetection.TriggerEnterEvent += OnSelectorTriggerEnter;
         SelectorCollisionDetection.TriggerExitEvent += OnSelectorTriggerExit;
-        m_SelectableUnits = new HashSet<AUnit>();
-        m_SelectedUnits = new HashSet<AUnit>();
+        m_SelectableEntities = new HashSet<AEntity>();
+        m_SelectedEntities = new HashSet<AEntity>();
     }
 
     private void Update()
     {
         if(Input.GetKeyDown(KeyCode.Mouse0))
         {
-            StartSelectionUI();
-            StartSelection();
+            if(m_HasCapturedEntity)
+            {
+                EndCapture(true);
+            }
+            else
+            {
+                StartSelectionUI();
+                StartSelection();
+            }
+        }
+
+        if(Input.GetKeyDown(KeyCode.Escape))
+        {
+            EndCapture(false);
         }
 
         if (Input.GetKey(KeyCode.Mouse0))
@@ -49,36 +66,48 @@ public class CameraController : MonoBehaviour
 
         if (Input.GetKeyUp(KeyCode.Mouse1))
         {
-            MoveSelection();
+            if(m_HasCapturedEntity)
+            {
+                EndCapture(false);
+            }
+            else
+            {
+                MoveSelection();
+            }
+        }
+
+        if(m_HasCapturedEntity)
+        {
+            UpdateCapturedEntity();
         }
     }
 
     void MoveSelection()
     {
-        if (m_SelectedUnits.Count > 0)
+        if (m_SelectedEntities.Count > 0)
         {
             if(Physics.Raycast(m_Camera.ScreenPointToRay(Input.mousePosition), out var hitInfo))
             {
                 int counter = 0;
                 float delta = .5f;
-                int maxPerLine = Mathf.Max(1, Mathf.FloorToInt(m_SelectedUnits.Count / Mathf.Log(m_SelectedUnits.Count)));
+                int maxPerLine = Mathf.Max(1, Mathf.FloorToInt(m_SelectedEntities.Count / Mathf.Log(m_SelectedEntities.Count)));
 
                 Vector3 center = Vector3.zero;
 
-                foreach (AUnit unit in m_SelectedUnits)
+                foreach (AEntity unit in m_SelectedEntities)
                 {
                     center += unit.transform.position;
                 }
 
-                center /= m_SelectedUnits.Count;
+                center /= m_SelectedEntities.Count;
                 Vector3 direction = hitInfo.point - center;
                 direction.y = 0;
                 direction.Normalize();
                 
-                foreach (AUnit unit in m_SelectedUnits)
+                foreach (AEntity unit in m_SelectedEntities)
                 {
                     int lineNumber = counter / maxPerLine;
-                    int thisLineNumber = Mathf.Min(maxPerLine, m_SelectedUnits.Count - lineNumber * maxPerLine);
+                    int thisLineNumber = Mathf.Min(maxPerLine, m_SelectedEntities.Count - lineNumber * maxPerLine);
                     
                     float x = delta * (counter % thisLineNumber) - (thisLineNumber - 1) / 2f * delta;
                     float y = -delta * lineNumber;
@@ -158,41 +187,75 @@ public class CameraController : MonoBehaviour
         
         if (!Input.GetKey(KeyCode.LeftShift) && !Input.GetKey(KeyCode.RightShift))
         {
-            foreach (AUnit unit in m_SelectedUnits)
+            foreach (AEntity unit in m_SelectedEntities)
             {
                 unit.Selectable.enabled = false;
                 unit.Selected.enabled = false;
             }
 
-            m_SelectedUnits.Clear();
+            m_SelectedEntities.Clear();
         }
 
-        foreach(AUnit unit in m_SelectableUnits)
+        foreach(AEntity unit in m_SelectableEntities)
         {
             unit.Selectable.enabled = false;
             unit.Selected.enabled = true;
-            m_SelectedUnits.Add(unit);
+            m_SelectedEntities.Add(unit);
         }
-        m_SelectableUnits.Clear();
+        m_SelectableEntities.Clear();
+    }
+
+    void UpdateCapturedEntity()
+    {
+        Ray ray = m_Camera.ScreenPointToRay(Input.mousePosition);
+        if (Physics.Raycast(ray, out var hitInfo))
+        {
+            m_CapturedEntity.transform.position = hitInfo.point;
+        }
+    }
+
+    public void StartCapture(GameObject Entity)
+    {
+        if(m_HasCapturedEntity)
+        {
+            EndCapture(false);
+        }
+        m_HasCapturedEntity = true;
+        m_CapturedEntity = GameObject.Instantiate(Entity);
+    }
+
+    void EndCapture(bool Success)
+    {
+        m_HasCapturedEntity = false;
+        if(Success)
+        {
+            m_CapturedEntity.GetComponent<Collider>().enabled = true;
+        }
+        else
+        {
+            Destroy(m_CapturedEntity);
+            m_CapturedEntity = null;
+        }
     }
 
     void OnSelectorTriggerEnter(Collider other)
     {
-        var unit = other.GetComponent<AUnit>();
-        if (unit)
+        var entity = other.GetComponent<AEntity>();
+        if (entity)
         {
-            unit.Selectable.enabled = true;
-            m_SelectableUnits.Add(unit);
+            entity.Selectable.enabled = true;
+            m_SelectableEntities.Add(entity);
+            Debug.Log(entity.name);
         }
     }
 
     void OnSelectorTriggerExit(Collider other)
     {
-        var unit = other.GetComponent<AUnit>();
-        if (unit)
+        var entity = other.GetComponent<AEntity>();
+        if (entity)
         {
-            unit.Selectable.enabled = false;
-            m_SelectableUnits.Remove(unit);
+            entity.Selectable.enabled = false;
+            m_SelectableEntities.Remove(entity);
         }
     }
 }

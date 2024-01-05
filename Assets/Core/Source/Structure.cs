@@ -2,7 +2,7 @@
 
 namespace Core.Source
 {
-    public class AStructure : AUnit
+    public class AStructure : AEntity
     {
         
     }
